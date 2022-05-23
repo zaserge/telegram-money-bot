@@ -1,19 +1,17 @@
 # pylint: disable=C0111
 
-import json
 import requests
 
 
-class APIException(Exception):
-    def __init__(self, message: str):
-        super().__init__(message)
+class ExchangeAPIException(Exception):
+    pass
 
 
 class CurrencyExchange(object):
 
     CONVERT_URL = 'https://api.apilayer.com/exchangerates_data/convert'
     CURRENCY_LIST = {
-        'RUB': 'Ruble',
+        'RUB': 'Рубли',
         'USD': 'US dollar',
         'EUR': 'Euro'
     }
@@ -27,10 +25,10 @@ class CurrencyExchange(object):
     def exchange(self, source: str, dest: str, value: float):
 
         if source not in CurrencyExchange.CURRENCY_LIST:
-            raise APIException(f"Currency is unknown ({source})")
+            raise ExchangeAPIException(f"Неизвестная валюта ({source})")
 
         if dest not in CurrencyExchange.CURRENCY_LIST:
-            raise APIException(f"Currency is unknown ({dest})")
+            raise ExchangeAPIException(f"Неизвестная валюта ({dest})")
 
         try:
             amount = float(value)
@@ -38,10 +36,10 @@ class CurrencyExchange(object):
             amount = None
 
         if not amount:
-            raise APIException(f"Currency amount is incorrect ({value})")
+            raise ValueError(f"Количество ошибочное ({value})")
 
         if amount <= 0:
-            raise APIException(f"Currency amount is negative ({value})")
+            raise ValueError(f"Количество не может быть отрицательным ({value})")
 
         headers = {'apikey': self.api_key}
         params = {
@@ -50,19 +48,18 @@ class CurrencyExchange(object):
             'amount':   amount
         }
 
-        #r = requests.get(CurrencyExchange.CONVERT_URL, params=params, headers=headers)
-        #response = r.json()
-        response = {'success': True,
-                    'query': {'from': 'RUB', 'to': 'EUR', 'amount': 25.5},
-                    'info': {'timestamp': 1653254403, 'rate': 0.015269},
-                    'date': '2022-05-22',
-                    'result': 389.3623}
+        response = requests.get(CurrencyExchange.CONVERT_URL, params=params, headers=headers).json()
+
+        # response = {'success': True,
+        #             'query': {'from': 'RUB', 'to': 'EUR', 'amount': 25.5},
+        #             'info': {'timestamp': 1653254403, 'rate': 0.015269},
+        #             'date': '2022-05-22',
+        #             'result': 389.3623}
 
         if response and response.get('result'):
-            # return f"{amount:.2f} {source} = {round(response.get('result'), 2):.2f} {dest}"
             return round(response.get('result'), 2)
-        else:
-            raise APIException("Unknown server error")
+
+        raise ExchangeAPIException(f"Ошибка сервера. {response['message']}")
 
     @staticmethod
     def get_price(base: str, quote: str, amount: float, apikey: str):
